@@ -9,7 +9,7 @@
 import Lux
 import SwiftUI
 
-public struct BrowserBackView: View {
+public struct WebBrowserBackView: View {
     @ObservedObject var browser: WebViewStore
     
     public init(browser: WebViewStore) {
@@ -30,7 +30,7 @@ public struct BrowserBackView: View {
     }
 }
 
-public struct BrowserView: View {
+public struct WebBrowserView: View {
     @ObservedObject var webViewStore: WebViewStore
 
     public init(webViewStore: WebViewStore) {
@@ -40,11 +40,11 @@ public struct BrowserView: View {
         WebView(webView: self.webViewStore.webView)
             .opacity(self.webViewStore.webView.isLoading ? 0.8 : 1.0)
             .animation(.easeInOut)
-            .background(BrowserBackView(browser: self.webViewStore))
+            .background(WebBrowserBackView(browser: self.webViewStore))
     }
 }
 
-public struct LoaderNavBar: View {
+public struct WebLoaderBar: View {
     @ObservedObject var webViewStore: WebViewStore
     
     public init(webViewStore: WebViewStore) {
@@ -68,7 +68,7 @@ public struct LoaderNavBar: View {
     }
 }
 
-public struct NavigatorNavBar: View {
+public struct WebNavigatorNavBar: View {
     @ObservedObject var webViewStore: WebViewStore
 
     public init(webViewStore: WebViewStore) {

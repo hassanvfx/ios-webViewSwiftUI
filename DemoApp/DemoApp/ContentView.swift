@@ -19,9 +19,9 @@ struct ContentView: View {
     
     var body: some View {
         VStack{
-            NavigatorNavBar(webViewStore: model.website)
-            LoaderNavBar(webViewStore: model.website)
-            BrowserView(webViewStore: model.website)
+            WebNavigatorNavBar(webViewStore: model.website)
+            WebLoaderBar(webViewStore: model.website)
+            WebBrowserView(webViewStore: model.website)
                 .onAppear {
                     model.website.loadIfNeeded()
                     
