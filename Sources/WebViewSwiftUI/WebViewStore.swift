@@ -10,26 +10,44 @@ import Combine
 import SwiftUI
 import WebKit
 
-public class WebViewStore: NSObject, ObservableObject {
+public class WebViewStore: NSObject, ObservableObject,WKNavigationDelegate {
+    public enum LinkReaction{
+        case allow
+        case openExternal
+        case deny
+    }
     var rootURLString: String
     var initialLoad = false
-    var onExternalURL: ((URL) -> Void)?
+    var linkHandler: ((URL) -> LinkReaction)?
     var allowedPrefixes: [String] = []
+    private var observers: [NSKeyValueObservation] = []
 
-    @Published public var webView: WKWebView {
-        didSet {
-            setupObservers()
-        }
+    deinit {
+        invalidateObservers()
     }
-
-    public init(rootURLString: String, webView: WKWebView = WKWebView()) {
-        self.webView = webView
+    
+    public init(rootURLString: String, linkHandler:((URL) -> LinkReaction)? = nil, webView: WKWebView? = nil) {
+        self.webView = webView ?? WKWebView()
+        self.linkHandler = linkHandler
         self.rootURLString = rootURLString
         super.init()
         self.webView.allowsBackForwardNavigationGestures = true
         setupObservers()
     }
+    
+    @Published public var webView: WKWebView {
+        didSet {
+            setupObservers()
+        }
+    }
+}
 
+extension WebViewStore{
+    private func invalidateObservers(){
+        observers.forEach {
+            $0.invalidate()
+        }
+    }
     private func setupObservers() {
         func subscriber<Value>(for keyPath: KeyPath<WKWebView, Value>) -> NSKeyValueObservation {
             return webView.observe(keyPath, options: [.prior]) { _, change in
@@ -38,7 +56,7 @@ public class WebViewStore: NSObject, ObservableObject {
                 }
             }
         }
-        // Setup observers for all KVO compliant properties
+        invalidateObservers()
         observers = [
             subscriber(for: \.title),
             subscriber(for: \.url),
@@ -49,28 +67,11 @@ public class WebViewStore: NSObject, ObservableObject {
             subscriber(for: \.canGoBack),
             subscriber(for: \.canGoForward),
         ]
+        
+        webView.navigationDelegate = self
     }
 
-    private var observers: [NSKeyValueObservation] = []
 
-    deinit {
-        observers.forEach {
-            // Not even sure if this is required?
-            // Probably wont be needed in future betas?
-            $0.invalidate()
-        }
-    }
-
-    open var allowedURLPrefixes: [String] {
-        allowedPrefixes +
-            [
-                "https://",
-            ]
-    }
-
-    open var rootURL: URL {
-        URL.optional(from: rootURLString)!
-    }
 }
 
 /// A container for using a WKWebView in SwiftUI
@@ -121,7 +122,11 @@ public class UIViewContainerView<ContentView: UIView>: UIView {
 }
 
 extension WebViewStore {
-    @objc open func load(url: URL) {
+    private var rootURL: URL {
+        URL.optional(from: rootURLString)!
+    }
+    
+    @objc public func load(url: URL) {
         if let scheme = url.scheme {
             allowedPrefixes.append(scheme)
         }
@@ -131,13 +136,13 @@ extension WebViewStore {
         }
     }
 
-    @objc open func reload() {
+    @objc public func reload() {
         DispatchQueue.main.async {
             self.webView.load(URLRequest(url: self.rootURL))
         }
     }
 
-    @objc open func loadIfNeeded() {
+    @objc public func loadIfNeeded() {
         loadIfDisposed()
 
         guard initialLoad == false else { return }
@@ -146,7 +151,7 @@ extension WebViewStore {
         reload()
     }
 
-    @objc open func loadIfDisposed() {
+    @objc public func loadIfDisposed() {
         DispatchQueue.main.async {
             self.webView.evaluateJavaScript("document.querySelector('body').innerHTML") { [weak self] _, error in
                 if error != nil {
@@ -161,119 +166,4 @@ extension WebViewStore {
     }
 }
 
-extension WebViewStore {
-    func getHTML(completion: @escaping (String?) -> Void) {
-        webView.evaluateJavaScript("document.documentElement.outerHTML.toString()",
-                                   completionHandler: { (html: Any?, _: Error?) in
-                                       completion(html as? String)
-        })
-    }
-}
 
-extension WebViewStore {
-    func JSselectorComposableString(tag: String, value: String?, partial: Bool = true, caseInsensitive: Bool = true) -> String {
-        let operation = partial ? "*=" : "="
-        let caseConcern = caseInsensitive ? "i" : ""
-        let selector = value == nil ? tag : "[\(tag)\(operation)\(value!) \(caseConcern)]"
-        let script = "var result = document.querySelectorAll('\(selector)')"
-
-        return script
-    }
-}
-
-extension WebViewStore {
-    func JSsearchFor(tag: String, value: String? = nil, partial: Bool = true, caseInsensitive: Bool = true, completion: @escaping (Bool) -> Void) {
-        let selector = JSselectorComposableString(tag: tag, value: value, partial: partial, caseInsensitive: caseInsensitive)
-        let result = "result.length > 0;"
-        JSperformScript(script: selector, result) { completion($0 as! Bool) }
-    }
-}
-
-extension WebViewStore {
-    static let JSRemoveScriptSufix = ".forEach(e => e.parentNode.removeChild(e));"
-    func JSremove(tag: String, value: String? = nil, partial: Bool = true, caseInsensitive: Bool = true, completion: @escaping (Bool) -> Void) {
-        let remove = { [weak self] in
-
-            guard let this = self else { return }
-
-            let selector = this.JSselectorComposableString(tag: tag, value: value, partial: partial, caseInsensitive: caseInsensitive)
-            let result = Self.JSRemoveScriptSufix
-            let script = "\(selector)\(result)"
-
-            this.JSperformScript(script: script) { _ in completion(true) }
-        }
-
-        JSsearchFor(tag: tag, value: value, partial: partial, caseInsensitive: caseInsensitive) { result in
-            if result == false {
-                assert(false, "Not found \(tag) or \(String(describing: value))")
-                completion(false)
-                return
-            } else {
-                remove()
-            }
-        }
-    }
-}
-
-extension WebViewStore {
-    typealias Completion = (Any?) -> Void
-    func JSperformScript(script: String..., completion: Completion? = nil) {
-        let singleScript = script.joined(separator: ";")
-        webView
-            .evaluateJavaScript(singleScript,
-                                completionHandler: { (result: Any?, error: Error?) in
-                                    assert(error == nil, "Script failed: '\(singleScript)'")
-                                    completion?(result)
-            })
-    }
-}
-
-extension WebViewStore {
-    func JSmakeScript(interval: CGFloat = 100, script: String) -> String {
-        """
-        var watcher = setInterval(function(){
-        \(script)
-        },\(interval));
-        """
-    }
-}
-
-extension WebViewStore {
-    struct RemoveInfo {
-        var tag: String
-        var value: String?
-    }
-}
-
-extension WebViewStore {
-    open func resolve(navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        guard let urlString = navigationAction.request.url?.absoluteString else {
-            decisionHandler(.cancel)
-            return
-        }
-
-        let match = allowedURLPrefixes.map { urlString.contains($0) }.reduce(true) { $0 && $1 }
-        match ?
-            decisionHandler(.allow)
-            :
-            decisionHandler(.cancel)
-
-        if match == false,
-            navigationAction.navigationType == .formSubmitted || navigationAction.navigationType == .linkActivated {
-            openExternal(urlString: navigationAction.request.url?.absoluteString)
-        }
-    }
-
-    func openExternal(urlString: String?) {
-        guard
-            let urlString = urlString,
-            let url = URL.optional(from: urlString) else { return }
-
-        onExternalURL?(url)
-    }
-
-    func openInShare() {
-        guard let url = webView.url else { return }
-        UIApplication.shared.open(url)
-    }
-}
