@@ -9,33 +9,29 @@ import Lux
 import SwiftUI
 import WebViewSwiftUI
 
-class ContentViewModel: NSObject, ObservableObject {
-    @Published var website = WebViewStore(rootURLString: "https://spree3d.com", linkHandler: ContentViewModel.linkHandler)
-    
-    static func linkHandler(_ url:URL)-> WebViewStore.LinkReaction{
-  
-        
-        let alert = UIAlertController(title: "Intercepted", message: "allowed nav intent to:\(url)", preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "Ok", style: .default, handler: { _ in
-            
-        }))
-        UIApplication.present(alert)
-        
-        return .allow
-    }
-}
-
 struct ContentView: View {
-    @StateObject var model = ContentViewModel()
+    @StateObject var website = WebViewStore()
+    
+    func configWebsite(){
+        website.setLinkHandler{ url in
+            let alert = UIAlertController(title: "Intercepted", message: "allowed nav intent to:\(url)", preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "Ok", style: .default, handler: { _ in
+                
+            }))
+            UIApplication.present(alert)
+            
+            return .allow
+        }
+        website.loadIfNeeded()
+    }
     
     var body: some View {
         VStack{
-            NavigatorNavBar(webViewStore: model.website)
-            LoaderNavBar(webViewStore: model.website)
-            BrowserView(webViewStore: model.website)
+            NavigatorNavBar(webViewStore: website)
+            LoaderNavBar(webViewStore: website)
+            BrowserView(webViewStore: website)
                 .onAppear {
-                    model.website.loadIfNeeded()
-                    
+                    configWebsite()
                 }
             
         }

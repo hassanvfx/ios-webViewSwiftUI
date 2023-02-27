@@ -16,31 +16,25 @@ public class WebViewStore: NSObject, ObservableObject,WKNavigationDelegate {
         case openExternal
         case deny
     }
-    var rootURLString: String
-    var initialLoad = false
-    var linkHandler: ((URL) -> LinkReaction)?
-    var allowedPrefixes: [String] = []
+    private var initialLoad = true
+    internal var linkHandler: ((URL) -> LinkReaction)?
     private var observers: [NSKeyValueObservation] = []
-
+    @Published public var webView: WKWebView
+    
+    override public init(){
+        self.webView = WKWebView()
+        super.init()
+        setupObservers()
+    }
     deinit {
         invalidateObservers()
     }
     
-    public init(rootURLString: String, linkHandler:((URL) -> LinkReaction)? = nil, webView: WKWebView? = nil) {
-        self.webView = webView ?? WKWebView()
+    public func setLinkHandler(_ linkHandler:((URL) -> LinkReaction)?=nil){
         self.linkHandler = linkHandler
-        self.rootURLString = rootURLString
-        super.init()
-        self.webView.allowsBackForwardNavigationGestures = true
-        setupObservers()
-    }
-    
-    @Published public var webView: WKWebView {
-        didSet {
-            setupObservers()
-        }
     }
 }
+
 
 extension WebViewStore{
     private func invalidateObservers(){
@@ -122,32 +116,29 @@ public class UIViewContainerView<ContentView: UIView>: UIView {
 }
 
 extension WebViewStore {
-    private var rootURL: URL {
-        URL.optional(from: rootURLString)!
-    }
     
     @objc public func load(url: URL) {
-        if let scheme = url.scheme {
-            allowedPrefixes.append(scheme)
-        }
-
         DispatchQueue.main.async {
             self.webView.load(URLRequest(url: url))
         }
     }
 
     @objc public func reload() {
+        guard let url = self.webView.url else{
+            return
+        }
         DispatchQueue.main.async {
-            self.webView.load(URLRequest(url: self.rootURL))
+            self.webView.load(URLRequest(url: url))
         }
     }
 
     @objc public func loadIfNeeded() {
-        loadIfDisposed()
-
-        guard initialLoad == false else { return }
-        initialLoad = true
-
+      
+        guard initialLoad == true else {
+            loadIfDisposed()
+            return
+        }
+        initialLoad = false
         reload()
     }
 
