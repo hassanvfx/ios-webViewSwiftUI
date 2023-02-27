@@ -132,21 +132,24 @@ extension WebViewStore {
         }
     }
 
-    @objc public func loadIfNeeded() {
-      
+    @objc public func loadIfNeeded(url:URL) {
         guard initialLoad == true else {
-            loadIfDisposed()
+            loadIfDisposed(url: url)
             return
         }
         initialLoad = false
-        reload()
+        load(url: url)
     }
 
-    @objc public func loadIfDisposed() {
+    @objc public func loadIfDisposed(url:URL?) {
+        guard let url = url ?? webView.url else{
+            return
+        }
+        
         DispatchQueue.main.async {
             self.webView.evaluateJavaScript("document.querySelector('body').innerHTML") { [weak self] _, error in
                 if error != nil {
-                    self?.reload()
+                    self?.load(url: url)
                 }
             }
         }

@@ -39,7 +39,7 @@ public struct BrowserView: View {
     public var body: some View {
         WebView(webView: self.webViewStore.webView)
             .opacity(self.webViewStore.webView.isLoading ? 0.8 : 1.0)
-            .animation(.easeInOut)
+            .animation(.easeInOut,value:true)
             .background(BrowserBackView(browser: self.webViewStore))
     }
 }

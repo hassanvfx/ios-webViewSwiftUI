@@ -11,19 +11,7 @@ import WebViewSwiftUI
 
 struct ContentView: View {
     @StateObject var website = WebViewStore()
-    
-    func configWebsite(){
-        website.setLinkHandler{ url in
-            let alert = UIAlertController(title: "Intercepted", message: "allowed nav intent to:\(url)", preferredStyle: .alert)
-            alert.addAction(UIAlertAction(title: "Ok", style: .default, handler: { _ in
-                
-            }))
-            UIApplication.present(alert)
-            
-            return .allow
-        }
-        website.loadIfNeeded()
-    }
+    let baseURL=URL(string:"https://www.spree3d.com")!
     
     var body: some View {
         VStack{
@@ -36,6 +24,22 @@ struct ContentView: View {
             
         }
     }
+    
+    func configWebsite(){
+        website.setLinkHandler{ url in
+            let alert = UIAlertController(title: "Intercepted", message: "allowed nav intent to:\(url)", preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "Ok", style: .default, handler: { _ in
+                
+            }))
+            UIApplication.present(alert)
+            
+            return .allow
+        }
+        DispatchQueue.main.async {
+            self.website.loadIfNeeded(url:baseURL)
+        }
+        
+    }
 }
 
 struct ContentView_Previews: PreviewProvider {
@@ -46,7 +50,7 @@ struct ContentView_Previews: PreviewProvider {
 
 extension UIApplication{
     static var rootVC: UIViewController {
-            UIApplication.shared.windows.first!.rootViewController!
+        UIApplication.shared.windows.first!.rootViewController!
     }
     
     static func present(_ controller: UIViewController, animated _: Bool = true, completion: (() -> Void)? = nil) {
