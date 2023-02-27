@@ -14,7 +14,7 @@ let package = Package(
             targets: ["WebViewSwiftUI"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/hassanvfx/ios-vendor-Lux", exact: "1.2.7")
+        .package(url: "https://github.com/spree3d/ios-vendor-Lux", exact: "1.2.7"),
     ],
     targets: [
         .target(
