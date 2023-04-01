@@ -36,6 +36,7 @@ extension WebViewStore {
             decisionHandler(.cancel)
         case .openExternal:
             UIApplication.shared.open(url)
+            decisionHandler(.cancel)
         }
     }
    
