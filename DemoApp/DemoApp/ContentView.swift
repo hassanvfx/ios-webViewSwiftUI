@@ -11,7 +11,7 @@ import WebViewSwiftUI
 
 struct ContentView: View {
     @StateObject var website = WebViewStore()
-    let baseURL=URL(string:"https://www.spree3d.com")!
+    let baseURL=URL(string:"https://www.google.com")!
     
     var body: some View {
         VStack{
